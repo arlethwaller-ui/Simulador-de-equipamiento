@@ -9,16 +9,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#15171B;
-    --paper:#F5F3EE;
+    --ink:#0D0D0D;
+    --paper:#F4F4F4;
     --panel:#FFFFFF;
-    --line:#DEDAD0;
-    --accent:#FF5A1F;
-    --accent-dark:#D8480F;
+    --line:#E1E1E1;
+    --accent:#E30016;
+    --accent-dark:#B8000F;
     --steel:#37506A;
     --ok:#1F9D55;
-    --err:#C9372C;
-    --radius:4px;
+    --err:#E30016;
+    --radius:3px;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -33,8 +33,7 @@
     align-items:center;
     justify-content:space-between;
     padding:18px 28px;
-    border-bottom:3px solid var(--ink);
-    background:var(--panel);
+    background:var(--ink);
   }
   .brand{
     display:flex;
@@ -42,11 +41,9 @@
     gap:12px;
   }
   .brand-mark{
-    width:34px;height:34px;
+    width:14px;height:34px;
     background:var(--accent);
-    position:relative;
     flex:none;
-    clip-path:polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
   }
   .brand h1{
     font-family:'Archivo Black', sans-serif;
@@ -54,6 +51,7 @@
     letter-spacing:0.02em;
     margin:0;
     line-height:1.1;
+    color:#fff;
   }
   .brand span{
     display:block;
@@ -61,7 +59,7 @@
     font-size:11px;
     letter-spacing:0.16em;
     text-transform:uppercase;
-    color:#6B6455;
+    color:#B5B5B5;
     font-weight:600;
   }
   .reset-btn{
@@ -71,13 +69,13 @@
     text-transform:uppercase;
     font-size:13px;
     background:none;
-    border:1px solid var(--line);
+    border:1px solid #444;
     padding:8px 14px;
     border-radius:var(--radius);
     cursor:pointer;
-    color:var(--ink);
+    color:#fff;
   }
-  .reset-btn:hover{border-color:var(--ink);}
+  .reset-btn:hover{border-color:var(--accent); color:var(--accent);}
 
   main{
     max-width:1180px;
@@ -124,7 +122,7 @@
   }
   .step-desc{
     font-size:13.5px;
-    color:#6B6455;
+    color:#5A5A5A;
     margin-top:2px;
     line-height:1.4;
   }
@@ -138,7 +136,7 @@
     align-items:center;
     justify-content:center;
     overflow:hidden;
-    background:#FAF9F6;
+    background:#FAFAFA;
     cursor:pointer;
     transition:border-color .15s ease;
   }
@@ -152,7 +150,7 @@
     flex-direction:column;
     align-items:center;
     gap:8px;
-    color:#9A9384;
+    color:#9A9A9A;
     padding:16px;
     text-align:center;
   }
@@ -204,7 +202,7 @@
     align-items:center;
     gap:6px;
   }
-  .btn:hover{background:var(--ink); color:var(--paper);}
+  .btn:hover{background:var(--accent); border-color:var(--accent); color:#fff;}
   .btn:disabled{opacity:0.4; cursor:not-allowed;}
 
   .btn-primary{
@@ -222,7 +220,7 @@
     overflow:hidden;
   }
   .btn-primary:hover:not(:disabled){background:var(--accent-dark);}
-  .btn-primary:disabled{background:#D8D3C7; border-color:#D8D3C7; color:#9A9384; opacity:1;}
+  .btn-primary:disabled{background:#D8D8D8; border-color:#D8D8D8; color:#9A9A9A; opacity:1;}
   .btn-primary .stripes{
     position:absolute; inset:0;
     background:repeating-linear-gradient(135deg, rgba(255,255,255,0.14) 0 10px, transparent 10px 20px);
@@ -247,7 +245,7 @@
   .result-head p{
     margin:0 0 20px;
     font-size:13.5px;
-    color:#6B6455;
+    color:#5A5A5A;
   }
   .result-body{
     flex:1;
@@ -255,7 +253,7 @@
     align-items:center;
     justify-content:center;
     border-radius:var(--radius);
-    background:#FAF9F6;
+    background:#FAFAFA;
     border:1px solid var(--line);
     position:relative;
     overflow:hidden;
@@ -265,7 +263,7 @@
     width:100%; height:100%; object-fit:contain;
   }
   .placeholder{
-    color:#9A9384;
+    color:#9A9A9A;
     text-align:center;
     padding:40px;
     font-family:'Barlow Condensed', sans-serif;
@@ -304,7 +302,7 @@
     margin-top:14px;
     font-family:'Barlow Condensed', sans-serif;
     font-size:14px;
-    color:#6B6455;
+    color:#5A5A5A;
     letter-spacing:0.03em;
   }
   .loading-wrap{display:flex; flex-direction:column; align-items:center; gap:2px;}
@@ -312,7 +310,7 @@
   .disclaimer{
     text-align:center;
     font-size:12px;
-    color:#9A9384;
+    color:#9A9A9A;
     padding:22px 24px 0;
     max-width:1180px;
     margin:0 auto;
@@ -349,12 +347,14 @@
         <div class="corner bl"></div><div class="corner br"></div>
         <div class="frame-empty" id="emptyVehicle">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h3l1.5-2h7L17 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
-          <span>Toca para subir o tomar foto</span>
+          <span>Sube una foto o tómala</span>
         </div>
-        <input type="file" id="inputVehicle" accept="image/*" capture="environment" />
       </label>
+      <input type="file" id="inputVehicleGallery" accept="image/*" />
+      <input type="file" id="inputVehicleCamera" accept="image/*" capture="environment" />
       <div class="file-actions">
-        <button class="btn" id="changeVehicle" style="display:none;">Cambiar foto</button>
+        <button class="btn" id="galleryVehicle" type="button">🖼 Subir imagen</button>
+        <button class="btn" id="cameraVehicle" type="button">📷 Tomar foto</button>
       </div>
     </div>
 
@@ -371,12 +371,14 @@
         <div class="corner bl"></div><div class="corner br"></div>
         <div class="frame-empty" id="emptyAccessory">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h3l1.5-2h7L17 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
-          <span>Toca para subir o tomar foto</span>
+          <span>Sube una foto o tómala</span>
         </div>
-        <input type="file" id="inputAccessory" accept="image/*" capture="environment" />
       </label>
+      <input type="file" id="inputAccessoryGallery" accept="image/*" />
+      <input type="file" id="inputAccessoryCamera" accept="image/*" capture="environment" />
       <div class="file-actions">
-        <button class="btn" id="changeAccessory" style="display:none;">Cambiar foto</button>
+        <button class="btn" id="galleryAccessory" type="button">🖼 Subir imagen</button>
+        <button class="btn" id="cameraAccessory" type="button">📷 Tomar foto</button>
       </div>
     </div>
 
@@ -415,18 +417,54 @@
 <script>
   const state = { vehicle: null, accessory: null };
 
-  function setupFrame(frameId, inputId, emptyId, changeBtnId, key){
-    const frame = document.getElementById(frameId);
-    const input = document.getElementById(inputId);
-    const empty = document.getElementById(emptyId);
-    const changeBtn = document.getElementById(changeBtnId);
+  // Redimensiona y comprime la imagen en el navegador antes de enviarla,
+  // para evitar el error "Request Entity Too Large" con fotos pesadas de celular.
+  function compressImage(dataUrl, maxDim = 1280, quality = 0.82){
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if(width > maxDim || height > maxDim){
+          if(width >= height){
+            height = Math.round(height * (maxDim / width));
+            width = maxDim;
+          }else{
+            width = Math.round(width * (maxDim / height));
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+  }
 
-    input.addEventListener('change', () => {
+  function setupFrame(frameId, galleryInputId, cameraInputId, emptyId, galleryBtnId, cameraBtnId, key){
+    const frame = document.getElementById(frameId);
+    const galleryInput = document.getElementById(galleryInputId);
+    const cameraInput = document.getElementById(cameraInputId);
+    const empty = document.getElementById(emptyId);
+    const galleryBtn = document.getElementById(galleryBtnId);
+    const cameraBtn = document.getElementById(cameraBtnId);
+
+    function handleFile(input){
       const file = input.files[0];
       if(!file) return;
       const reader = new FileReader();
-      reader.onload = (e) => {
-        state[key] = e.target.result;
+      reader.onload = async (e) => {
+        let finalDataUrl = e.target.result;
+        try{
+          finalDataUrl = await compressImage(e.target.result);
+        }catch(err){
+          console.warn('No se pudo comprimir la imagen, se usa la original.', err);
+        }
+        state[key] = finalDataUrl;
         frame.classList.add('has-image');
         empty.style.display = 'none';
         let img = frame.querySelector('img');
@@ -434,23 +472,24 @@
           img = document.createElement('img');
           frame.appendChild(img);
         }
-        img.src = e.target.result;
-        changeBtn.style.display = 'inline-flex';
+        img.src = finalDataUrl;
+        galleryBtn.textContent = '🖼 Cambiar imagen';
+        cameraBtn.textContent = '📷 Repetir foto';
         updateGenerateState();
       };
       reader.readAsDataURL(file);
-    });
+    }
 
-    changeBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      input.value = '';
-      input.click();
-    });
+    galleryInput.addEventListener('change', () => handleFile(galleryInput));
+    cameraInput.addEventListener('change', () => handleFile(cameraInput));
+
+    galleryBtn.addEventListener('click', () => { galleryInput.value = ''; galleryInput.click(); });
+    cameraBtn.addEventListener('click', () => { cameraInput.value = ''; cameraInput.click(); });
+    frame.addEventListener('click', (e) => { e.preventDefault(); galleryInput.value = ''; galleryInput.click(); });
   }
 
-  setupFrame('frameVehicle','inputVehicle','emptyVehicle','changeVehicle','vehicle');
-  setupFrame('frameAccessory','inputAccessory','emptyAccessory','changeAccessory','accessory');
+  setupFrame('frameVehicle','inputVehicleGallery','inputVehicleCamera','emptyVehicle','galleryVehicle','cameraVehicle','vehicle');
+  setupFrame('frameAccessory','inputAccessoryGallery','inputAccessoryCamera','emptyAccessory','galleryAccessory','cameraAccessory','accessory');
 
   const generateBtn = document.getElementById('generateBtn');
   const generateLabel = document.getElementById('generateLabel');
@@ -481,7 +520,14 @@
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ vehicleImage: state.vehicle, accessoryImage: state.accessory })
       });
-      const data = await res.json();
+
+      let data;
+      try{
+        data = await res.json();
+      }catch(parseErr){
+        throw new Error('El servidor respondió con un error inesperado (código ' + res.status + '). Intenta con fotos más livianas o vuelve a intentar en unos segundos.');
+      }
+
       if(!res.ok || !data.image){
         throw new Error(data.error || 'No se pudo generar la simulación.');
       }

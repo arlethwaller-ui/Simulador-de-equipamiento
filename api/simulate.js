@@ -1,6 +1,7 @@
 // api/simulate.js
-// Recibe dos imágenes (vehículo + accesorio) en base64 y pide a Gemini 2.5 Flash Image
-// que genere una foto realista del accesorio instalado en el vehículo.
+// Recibe dos imagenes (vehiculo + accesorio) en base64 y pide a Pollinations.ai
+// (modelo "nanobanana", gratis con registro) que genere una foto realista
+// del accesorio instalado en el vehiculo.
 
 export const config = {
   api: {
@@ -13,7 +14,7 @@ export const config = {
 function parseDataUrl(dataUrl) {
   const match = /^data:(.+);base64,(.+)$/.exec(dataUrl || '');
   if (!match) {
-    throw new Error('Formato de imagen inválido.');
+    throw new Error('Formato de imagen invalido.');
   }
   return { mimeType: match[1], data: match[2] };
 }
@@ -21,83 +22,73 @@ function parseDataUrl(dataUrl) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
-    return res.status(405).json({ error: 'Método no permitido.' });
+    return res.status(405).json({ error: 'Metodo no permitido.' });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.POLLINATIONS_API_KEY;
   if (!apiKey) {
     return res.status(500).json({
-      error: 'El servidor no tiene configurada GEMINI_API_KEY. Agrega la variable de entorno en Vercel.',
+      error: 'El servidor no tiene configurada POLLINATIONS_API_KEY. Agrega la variable de entorno en Vercel.',
     });
   }
 
   try {
     const { vehicleImage, accessoryImage } = req.body || {};
     if (!vehicleImage || !accessoryImage) {
-      return res.status(400).json({ error: 'Faltan las dos imágenes (vehículo y accesorio).' });
+      return res.status(400).json({ error: 'Faltan las dos imagenes (vehiculo y accesorio).' });
     }
 
     const vehicle = parseDataUrl(vehicleImage);
     const accessory = parseDataUrl(accessoryImage);
 
     const prompt =
-      'Eres un editor fotográfico automotriz experto. Te doy dos imágenes: la PRIMERA es un vehículo, ' +
-      'la SEGUNDA es un accesorio (por ejemplo: roll bar, parrilla, estribos, portaequipaje, defensa, etc.). ' +
-      'Genera una única imagen fotorrealista del vehículo de la primera foto con el accesorio de la segunda foto ' +
-      'instalado en la posición correcta y anatómicamente correcta para ese tipo de accesorio. Respeta la perspectiva, ' +
-      'el ángulo de cámara, la escala, la iluminación, las sombras proyectadas y los reflejos del vehículo original. ' +
-      'No alteres el resto del vehículo, el fondo, ni el color de la carrocería. El resultado debe parecer una fotografía ' +
-      'real tomada en el mismo lugar y con la misma luz que la foto original del vehículo, no un dibujo, colage ni render genérico.';
+      'Eres un editor fotografico automotriz experto. La PRIMERA imagen es un vehiculo, la SEGUNDA ' +
+      'es un accesorio (roll bar, parrilla, estribos, portaequipaje, defensa, etc.). Genera una unica imagen ' +
+      'fotorrealista del vehiculo de la primera foto con el accesorio EXACTO de la segunda foto instalado en ' +
+      'la posicion correcta para ese tipo de accesorio. Respeta la perspectiva, el angulo de camara, la escala, ' +
+      'la iluminacion, las sombras proyectadas y los reflejos del vehiculo original. No alteres el resto del ' +
+      'vehiculo, el fondo, ni el color de la carroceria. El resultado debe parecer una fotografia real tomada ' +
+      'en el mismo lugar y con la misma luz que la foto original del vehiculo.';
 
-    const geminiResponse = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: prompt },
-                { inline_data: { mime_type: vehicle.mimeType, data: vehicle.data } },
-                { inline_data: { mime_type: accessory.mimeType, data: accessory.data } },
-              ],
-            },
-          ],
-          generationConfig: {
-            responseModalities: ['IMAGE'],
-          },
-        }),
-      }
-    );
+    const form = new FormData();
+    form.append('prompt', prompt);
+    form.append('model', 'nanobanana');
+    form.append('image', new Blob([Buffer.from(vehicle.data, 'base64')], { type: vehicle.mimeType }), 'vehicle.jpg');
+    form.append('image', new Blob([Buffer.from(accessory.data, 'base64')], { type: accessory.mimeType }), 'accessory.jpg');
+    // Filtros de seguridad: bloquea contenido sexual, violento y otras categorías
+    // problemáticas. Importante porque esta app es pública y recibe fotos de terceros.
+    form.append('safe', 'privacy,secrets,sexual,violence,shield');
 
-    const result = await geminiResponse.json();
+    const response = await fetch('https://gen.pollinations.ai/v1/images/edits', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: form,
+    });
 
-    if (!geminiResponse.ok) {
-      const message = result?.error?.message || 'Error al comunicarse con el servicio de IA.';
-      return res.status(geminiResponse.status).json({ error: message });
+    const result = await response.json();
+
+    if (!response.ok) {
+      const message = result?.error?.message || result?.error || 'Error al comunicarse con el servicio de IA.';
+      return res.status(response.status).json({ error: message });
     }
 
-    const parts = result?.candidates?.[0]?.content?.parts || [];
-    const imagePart = parts.find((p) => p.inlineData || p.inline_data);
-    const imageData = imagePart?.inlineData?.data || imagePart?.inline_data?.data;
-    const mimeType =
-      imagePart?.inlineData?.mimeType || imagePart?.inline_data?.mime_type || 'image/png';
+    const item = result?.data?.[0];
+    let imageDataUrl = null;
+    if (item?.b64_json) {
+      imageDataUrl = `data:image/png;base64,${item.b64_json}`;
+    } else if (item?.url) {
+      imageDataUrl = item.url;
+    }
 
-    if (!imageData) {
-      const textPart = parts.find((p) => p.text)?.text;
+    if (!imageDataUrl) {
       return res.status(502).json({
-        error:
-          textPart ||
-          'El modelo no devolvió una imagen. Intenta con fotos más claras o de otro ángulo.',
+        error: 'El modelo no devolvio una imagen. Intenta con fotos mas claras o de otro angulo.',
       });
     }
 
-    return res.status(200).json({ image: `data:${mimeType};base64,${imageData}` });
+    return res.status(200).json({ image: imageDataUrl });
   } catch (err) {
     console.error('simulate error:', err);
     return res.status(500).json({ error: err.message || 'Error interno del servidor.' });

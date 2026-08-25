@@ -1,0 +1,10 @@
+{
+  "name": "simulador-accesorios",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Simulador de accesorios: sube foto de vehiculo y accesorio, la IA genera la simulacion instalada.",
+  "engines": {
+    "node": ">=18"
+  }
+}

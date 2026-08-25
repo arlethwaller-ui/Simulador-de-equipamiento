@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Simulador de Accesorios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#15171B;
+    --paper:#F5F3EE;
+    --panel:#FFFFFF;
+    --line:#DEDAD0;
+    --accent:#FF5A1F;
+    --accent-dark:#D8480F;
+    --steel:#37506A;
+    --ok:#1F9D55;
+    --err:#C9372C;
+    --radius:4px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Barlow', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:18px 28px;
+    border-bottom:3px solid var(--ink);
+    background:var(--panel);
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .brand-mark{
+    width:34px;height:34px;
+    background:var(--accent);
+    position:relative;
+    flex:none;
+    clip-path:polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  }
+  .brand h1{
+    font-family:'Archivo Black', sans-serif;
+    font-size:18px;
+    letter-spacing:0.02em;
+    margin:0;
+    line-height:1.1;
+  }
+  .brand span{
+    display:block;
+    font-family:'Barlow Condensed', sans-serif;
+    font-size:11px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:#6B6455;
+    font-weight:600;
+  }
+  .reset-btn{
+    font-family:'Barlow Condensed', sans-serif;
+    font-weight:600;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    font-size:13px;
+    background:none;
+    border:1px solid var(--line);
+    padding:8px 14px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    color:var(--ink);
+  }
+  .reset-btn:hover{border-color:var(--ink);}
+
+  main{
+    max-width:1180px;
+    margin:0 auto;
+    padding:32px 24px 80px;
+    display:grid;
+    grid-template-columns:380px 1fr;
+    gap:28px;
+  }
+  @media (max-width:860px){
+    main{grid-template-columns:1fr;}
+  }
+
+  .step{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:20px;
+    margin-bottom:20px;
+  }
+  .step-head{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    margin-bottom:14px;
+  }
+  .step-num{
+    font-family:'Archivo Black', sans-serif;
+    font-size:13px;
+    background:var(--ink);
+    color:var(--paper);
+    width:26px;height:26px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex:none;
+  }
+  .step-title{
+    font-family:'Barlow Condensed', sans-serif;
+    font-weight:700;
+    font-size:19px;
+    letter-spacing:0.01em;
+  }
+  .step-desc{
+    font-size:13.5px;
+    color:#6B6455;
+    margin-top:2px;
+    line-height:1.4;
+  }
+
+  .frame{
+    position:relative;
+    border:2px dashed var(--line);
+    border-radius:var(--radius);
+    aspect-ratio:4/3;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    background:#FAF9F6;
+    cursor:pointer;
+    transition:border-color .15s ease;
+  }
+  .frame:hover{border-color:var(--accent);}
+  .frame.has-image{border-style:solid; border-color:var(--ink);}
+  .frame img{
+    width:100%;height:100%;object-fit:cover;
+  }
+  .frame-empty{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    color:#9A9384;
+    padding:16px;
+    text-align:center;
+  }
+  .frame-empty svg{width:32px;height:32px;}
+  .frame-empty span{
+    font-family:'Barlow Condensed', sans-serif;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    font-weight:600;
+  }
+  /* viewfinder corners */
+  .frame::before,.frame::after,
+  .frame-empty::before{content:none;}
+  .corner{
+    position:absolute;
+    width:18px;height:18px;
+    border-color:var(--accent);
+    pointer-events:none;
+    opacity:0;
+    transition:opacity .15s ease;
+  }
+  .frame:hover .corner{opacity:1;}
+  .corner.tl{top:8px;left:8px;border-top:3px solid;border-left:3px solid;}
+  .corner.tr{top:8px;right:8px;border-top:3px solid;border-right:3px solid;}
+  .corner.bl{bottom:8px;left:8px;border-bottom:3px solid;border-left:3px solid;}
+  .corner.br{bottom:8px;right:8px;border-bottom:3px solid;border-right:3px solid;}
+
+  input[type=file]{display:none;}
+
+  .file-actions{
+    display:flex;
+    gap:8px;
+    margin-top:12px;
+  }
+  .btn{
+    font-family:'Barlow Condensed', sans-serif;
+    font-weight:600;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    font-size:13px;
+    padding:9px 14px;
+    border-radius:var(--radius);
+    border:1px solid var(--ink);
+    background:var(--panel);
+    color:var(--ink);
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+  }
+  .btn:hover{background:var(--ink); color:var(--paper);}
+  .btn:disabled{opacity:0.4; cursor:not-allowed;}
+
+  .btn-primary{
+    width:100%;
+    justify-content:center;
+    background:var(--accent);
+    border-color:var(--accent-dark);
+    color:#fff;
+    font-family:'Barlow Condensed', sans-serif;
+    font-weight:700;
+    font-size:17px;
+    letter-spacing:0.03em;
+    padding:15px;
+    position:relative;
+    overflow:hidden;
+  }
+  .btn-primary:hover:not(:disabled){background:var(--accent-dark);}
+  .btn-primary:disabled{background:#D8D3C7; border-color:#D8D3C7; color:#9A9384; opacity:1;}
+  .btn-primary .stripes{
+    position:absolute; inset:0;
+    background:repeating-linear-gradient(135deg, rgba(255,255,255,0.14) 0 10px, transparent 10px 20px);
+    pointer-events:none;
+  }
+
+  .result-panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:24px;
+    min-height:500px;
+    display:flex;
+    flex-direction:column;
+  }
+  .result-head h2{
+    font-family:'Barlow Condensed', sans-serif;
+    font-weight:700;
+    font-size:22px;
+    margin:0 0 4px;
+  }
+  .result-head p{
+    margin:0 0 20px;
+    font-size:13.5px;
+    color:#6B6455;
+  }
+  .result-body{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:var(--radius);
+    background:#FAF9F6;
+    border:1px solid var(--line);
+    position:relative;
+    overflow:hidden;
+    min-height:360px;
+  }
+  .result-body img{
+    width:100%; height:100%; object-fit:contain;
+  }
+  .placeholder{
+    color:#9A9384;
+    text-align:center;
+    padding:40px;
+    font-family:'Barlow Condensed', sans-serif;
+    font-size:15px;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+  }
+  .footer-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-top:16px;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .status{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13.5px;
+    font-weight:600;
+  }
+  .status.ok{color:var(--ok);}
+  .status.err{color:var(--err);}
+  .status .dot{width:8px;height:8px;border-radius:50%;background:currentColor;}
+
+  .spinner{
+    width:38px;height:38px;
+    border:3px solid var(--line);
+    border-top-color:var(--accent);
+    border-radius:50%;
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-msg{
+    margin-top:14px;
+    font-family:'Barlow Condensed', sans-serif;
+    font-size:14px;
+    color:#6B6455;
+    letter-spacing:0.03em;
+  }
+  .loading-wrap{display:flex; flex-direction:column; align-items:center; gap:2px;}
+
+  .disclaimer{
+    text-align:center;
+    font-size:12px;
+    color:#9A9384;
+    padding:22px 24px 0;
+    max-width:1180px;
+    margin:0 auto;
+  }
+
+  .step[data-disabled="true"]{opacity:0.45; pointer-events:none;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark"></div>
+    <div>
+      <h1>Simulador de Accesorios</h1>
+      <span>Vista previa antes de instalar</span>
+    </div>
+  </div>
+  <button class="reset-btn" id="resetBtn">Limpiar todo</button>
+</div>
+
+<main>
+  <div>
+    <div class="step" id="step1">
+      <div class="step-head">
+        <div class="step-num">1</div>
+        <div>
+          <div class="step-title">Foto de tu vehículo</div>
+          <div class="step-desc">Sube o toma una foto clara del vehículo donde se instalará el accesorio.</div>
+        </div>
+      </div>
+      <label class="frame" id="frameVehicle">
+        <div class="corner tl"></div><div class="corner tr"></div>
+        <div class="corner bl"></div><div class="corner br"></div>
+        <div class="frame-empty" id="emptyVehicle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h3l1.5-2h7L17 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
+          <span>Toca para subir o tomar foto</span>
+        </div>
+        <input type="file" id="inputVehicle" accept="image/*" capture="environment" />
+      </label>
+      <div class="file-actions">
+        <button class="btn" id="changeVehicle" style="display:none;">Cambiar foto</button>
+      </div>
+    </div>
+
+    <div class="step" id="step2">
+      <div class="step-head">
+        <div class="step-num">2</div>
+        <div>
+          <div class="step-title">Foto del accesorio</div>
+          <div class="step-desc">Sube o toma una foto del accesorio que deseas instalar.</div>
+        </div>
+      </div>
+      <label class="frame" id="frameAccessory">
+        <div class="corner tl"></div><div class="corner tr"></div>
+        <div class="corner bl"></div><div class="corner br"></div>
+        <div class="frame-empty" id="emptyAccessory">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h3l1.5-2h7L17 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
+          <span>Toca para subir o tomar foto</span>
+        </div>
+        <input type="file" id="inputAccessory" accept="image/*" capture="environment" />
+      </label>
+      <div class="file-actions">
+        <button class="btn" id="changeAccessory" style="display:none;">Cambiar foto</button>
+      </div>
+    </div>
+
+    <div class="step" id="step3">
+      <div class="step-head">
+        <div class="step-num">3</div>
+        <div>
+          <div class="step-title">Generar simulación</div>
+          <div class="step-desc">La IA fusionará el accesorio sobre tu vehículo.</div>
+        </div>
+      </div>
+      <button class="btn-primary" id="generateBtn" disabled>
+        <div class="stripes"></div>
+        <span id="generateLabel">✦ Generar simulación</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="result-panel">
+    <div class="result-head">
+      <h2>Resultado de la simulación</h2>
+      <p>Así se verá el accesorio instalado en tu vehículo.</p>
+    </div>
+    <div class="result-body" id="resultBody">
+      <div class="placeholder">La simulación aparecerá aquí</div>
+    </div>
+    <div class="footer-row" id="footerRow" style="display:none;">
+      <div class="status" id="statusMsg"></div>
+      <button class="btn" id="downloadBtn" style="display:none;">↓ Descargar imagen</button>
+    </div>
+  </div>
+</main>
+
+<div class="disclaimer">La simulación es generada por IA y es referencial; puede variar según las condiciones de la foto.</div>
+
+<script>
+  const state = { vehicle: null, accessory: null };
+
+  function setupFrame(frameId, inputId, emptyId, changeBtnId, key){
+    const frame = document.getElementById(frameId);
+    const input = document.getElementById(inputId);
+    const empty = document.getElementById(emptyId);
+    const changeBtn = document.getElementById(changeBtnId);
+
+    input.addEventListener('change', () => {
+      const file = input.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        state[key] = e.target.result;
+        frame.classList.add('has-image');
+        empty.style.display = 'none';
+        let img = frame.querySelector('img');
+        if(!img){
+          img = document.createElement('img');
+          frame.appendChild(img);
+        }
+        img.src = e.target.result;
+        changeBtn.style.display = 'inline-flex';
+        updateGenerateState();
+      };
+      reader.readAsDataURL(file);
+    });
+
+    changeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      input.value = '';
+      input.click();
+    });
+  }
+
+  setupFrame('frameVehicle','inputVehicle','emptyVehicle','changeVehicle','vehicle');
+  setupFrame('frameAccessory','inputAccessory','emptyAccessory','changeAccessory','accessory');
+
+  const generateBtn = document.getElementById('generateBtn');
+  const generateLabel = document.getElementById('generateLabel');
+  const resultBody = document.getElementById('resultBody');
+  const footerRow = document.getElementById('footerRow');
+  const statusMsg = document.getElementById('statusMsg');
+  const downloadBtn = document.getElementById('downloadBtn');
+
+  function updateGenerateState(){
+    generateBtn.disabled = !(state.vehicle && state.accessory);
+  }
+
+  generateBtn.addEventListener('click', async () => {
+    if(!state.vehicle || !state.accessory) return;
+    generateBtn.disabled = true;
+    generateLabel.textContent = 'Generando…';
+    footerRow.style.display = 'none';
+    downloadBtn.style.display = 'none';
+    resultBody.innerHTML = `
+      <div class="loading-wrap">
+        <div class="spinner"></div>
+        <div class="loading-msg">Fusionando accesorio con el vehículo…</div>
+      </div>`;
+
+    try{
+      const res = await fetch('/api/simulate', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ vehicleImage: state.vehicle, accessoryImage: state.accessory })
+      });
+      const data = await res.json();
+      if(!res.ok || !data.image){
+        throw new Error(data.error || 'No se pudo generar la simulación.');
+      }
+      resultBody.innerHTML = `<img src="${data.image}" alt="Resultado simulado" />`;
+      footerRow.style.display = 'flex';
+      statusMsg.className = 'status ok';
+      statusMsg.innerHTML = '<span class="dot"></span> Simulación completada con éxito';
+      downloadBtn.style.display = 'inline-flex';
+      downloadBtn.onclick = () => {
+        const a = document.createElement('a');
+        a.href = data.image;
+        a.download = 'simulacion-accesorio.png';
+        a.click();
+      };
+    }catch(err){
+      resultBody.innerHTML = `<div class="placeholder">No se pudo generar la simulación</div>`;
+      footerRow.style.display = 'flex';
+      statusMsg.className = 'status err';
+      statusMsg.innerHTML = `<span class="dot"></span> ${err.message}`;
+    }finally{
+      generateBtn.disabled = false;
+      generateLabel.textContent = '✦ Generar simulación';
+      updateGenerateState();
+    }
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    location.reload();
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/simulate.js": {
+      "maxDuration": 30
+    }
+  }
+}

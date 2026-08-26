@@ -1,7 +1,7 @@
 // api/simulate.js
-// Paso 1: sube cada foto a Pollinations (POST /upload) para obtener una URL publica.
-// Paso 2: llama a GET /image/{prompt} pasando ambas URLs en el parametro "image".
-// Esta version expone el detalle exacto de cualquier error para poder diagnosticar.
+// Enfoque de 2 consultas independientes:
+// 1) Vision+texto: describe el accesorio en detalle a partir de su foto.
+// 2) Edicion de imagen (una sola imagen): agrega el accesorio descrito sobre la foto del vehiculo.
 
 export const config = {
   api: {
@@ -19,11 +19,71 @@ function parseDataUrl(dataUrl) {
   return { mimeType: match[1], data: match[2] };
 }
 
-async function uploadImage(apiKey, mimeType, base64Data, filename) {
-  const form = new FormData();
-  form.append('file', new Blob([Buffer.from(base64Data, 'base64')], { type: mimeType }), filename);
+async function describeAccessory(apiKey, accessoryDataUrl) {
+  const res = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'openai',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text:
+                'Describe este accesorio automotriz con el maximo detalle visual posible, en un solo ' +
+                'parrafo, en español: forma exacta, colores, materiales, textura, puntos de montaje, ' +
+                'tamaño aproximado, y cualquier detalle distintivo (logos, luces, texturas). Este texto ' +
+                'se usara para que otra IA lo dibuje sobre la foto de un vehiculo, asi que se lo mas ' +
+                'preciso y descriptivo posible. No des opiniones, solo describe.',
+            },
+            { type: 'image_url', image_url: { url: accessoryDataUrl } },
+          ],
+        },
+      ],
+    }),
+  });
 
-  const res = await fetch('https://gen.pollinations.ai/upload', {
+  const rawText = await res.text();
+  let data = null;
+  try {
+    data = JSON.parse(rawText);
+  } catch (e) {
+    // no era JSON
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      `Fallo al describir el accesorio (status ${res.status}): ${data?.error?.message || data?.error || rawText.slice(0, 300)}`
+    );
+  }
+
+  const description = data?.choices?.[0]?.message?.content;
+  if (!description) {
+    throw new Error('No se pudo obtener una descripcion del accesorio.');
+  }
+  return description;
+}
+
+async function editVehicleImage(apiKey, vehicle, accessoryDescription) {
+  const prompt =
+    'Eres un editor fotografico automotriz experto. Agrega el siguiente accesorio a este vehiculo, ' +
+    'instalandolo en la posicion correcta y realista para ese tipo de pieza. Respeta la perspectiva, ' +
+    'iluminacion, sombras y reflejos de la foto original. No cambies el resto del vehiculo ni el fondo. ' +
+    'El accesorio a instalar es: ' +
+    accessoryDescription;
+
+  const form = new FormData();
+  form.append('prompt', prompt);
+  form.append('model', 'kontext');
+  form.append('image', new Blob([Buffer.from(vehicle.data, 'base64')], { type: vehicle.mimeType }), 'vehicle.jpg');
+  form.append('safe', 'privacy,secrets,sexual,violence,shield');
+
+  const res = await fetch('https://gen.pollinations.ai/v1/images/edits', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}` },
     body: form,
@@ -34,15 +94,19 @@ async function uploadImage(apiKey, mimeType, base64Data, filename) {
   try {
     data = JSON.parse(rawText);
   } catch (e) {
-    // la respuesta no era JSON
+    // no era JSON
   }
 
-  if (!res.ok || !data?.url) {
+  if (!res.ok) {
     throw new Error(
-      `Fallo al subir imagen (status ${res.status}): ${data?.error?.message || data?.error || rawText.slice(0, 300)}`
+      `Fallo al generar la imagen (status ${res.status}): ${data?.error?.message || data?.error || rawText.slice(0, 300)}`
     );
   }
-  return data.url;
+
+  const item = data?.data?.[0];
+  if (item?.b64_json) return `data:image/png;base64,${item.b64_json}`;
+  if (item?.url) return item.url;
+  throw new Error('El modelo no devolvio una imagen.');
 }
 
 export default async function handler(req, res) {
@@ -65,49 +129,11 @@ export default async function handler(req, res) {
     }
 
     const vehicle = parseDataUrl(vehicleImage);
-    const accessory = parseDataUrl(accessoryImage);
 
-    const vehicleUrl = await uploadImage(apiKey, vehicle.mimeType, vehicle.data, 'vehicle.jpg');
-    const accessoryUrl = await uploadImage(apiKey, accessory.mimeType, accessory.data, 'accessory.jpg');
+    const accessoryDescription = await describeAccessory(apiKey, accessoryImage);
+    const finalImage = await editVehicleImage(apiKey, vehicle, accessoryDescription);
 
-    const prompt =
-      'Genera una imagen fotorrealista del vehiculo de la primera imagen de referencia con el accesorio ' +
-      'exacto de la segunda imagen de referencia instalado en la posicion correcta. Respeta la perspectiva, ' +
-      'escala, iluminacion y sombras del vehiculo original. No alteres el resto del vehiculo ni el fondo.';
-
-    const params = new URLSearchParams({
-      model: 'klein',
-      image: `${vehicleUrl},${accessoryUrl}`,
-      width: '1024',
-      height: '1024',
-      safe: 'privacy,secrets,sexual,violence,shield',
-    });
-
-    const imageUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}?${params.toString()}`;
-
-    const imageResponse = await fetch(imageUrl, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-
-    if (!imageResponse.ok) {
-      const rawText = await imageResponse.text();
-      let message = rawText.slice(0, 300);
-      try {
-        const errJson = JSON.parse(rawText);
-        message = errJson?.error?.message || errJson?.error || message;
-      } catch (e) {
-        // no era JSON, se deja el texto crudo
-      }
-      return res.status(imageResponse.status).json({
-        error: `Fallo al generar (status ${imageResponse.status}): ${message} | URL usada: ${imageUrl} | vehicleUrl: ${vehicleUrl} | accessoryUrl: ${accessoryUrl}`,
-      });
-    }
-
-    const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
-    const arrayBuffer = await imageResponse.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString('base64');
-
-    return res.status(200).json({ image: `data:${contentType};base64,${base64}` });
+    return res.status(200).json({ image: finalImage, descripcionUsada: accessoryDescription });
   } catch (err) {
     console.error('simulate error:', err);
     return res.status(500).json({ error: err.message || 'Error interno del servidor.' });

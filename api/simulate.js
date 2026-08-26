@@ -1,8 +1,7 @@
 // api/simulate.js
-// Recibe dos imagenes (vehiculo + accesorio) en base64 y pide a Pollinations.ai
-// (modelo "gptimage-large", que acepta Pollen gratis de misiones y admite
-// imagenes de referencia) que genere una foto realista del accesorio instalado
-// en el vehiculo.
+// Paso 1: sube cada foto a Pollinations (POST /upload) para obtener una URL publica.
+// Paso 2: llama a GET /image/{prompt} pasando ambas URLs en el parametro "image",
+// que si soporta multiples referencias documentadas para el modelo "kontext".
 
 export const config = {
   api: {
@@ -18,6 +17,23 @@ function parseDataUrl(dataUrl) {
     throw new Error('Formato de imagen invalido.');
   }
   return { mimeType: match[1], data: match[2] };
+}
+
+async function uploadImage(apiKey, mimeType, base64Data, filename) {
+  const form = new FormData();
+  form.append('file', new Blob([Buffer.from(base64Data, 'base64')], { type: mimeType }), filename);
+
+  const res = await fetch('https://gen.pollinations.ai/upload', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data?.url) {
+    throw new Error(data?.error?.message || data?.error || 'No se pudo subir la imagen a Pollinations.');
+  }
+  return data.url;
 }
 
 export default async function handler(req, res) {
@@ -42,52 +58,45 @@ export default async function handler(req, res) {
     const vehicle = parseDataUrl(vehicleImage);
     const accessory = parseDataUrl(accessoryImage);
 
+    const vehicleUrl = await uploadImage(apiKey, vehicle.mimeType, vehicle.data, 'vehicle.jpg');
+    const accessoryUrl = await uploadImage(apiKey, accessory.mimeType, accessory.data, 'accessory.jpg');
+
     const prompt =
-      'Eres un editor fotografico automotriz experto. La PRIMERA imagen es un vehiculo, la SEGUNDA ' +
-      'es un accesorio (roll bar, parrilla, estribos, portaequipaje, defensa, etc.). Genera una unica imagen ' +
-      'fotorrealista del vehiculo de la primera foto con el accesorio EXACTO de la segunda foto instalado en ' +
-      'la posicion correcta para ese tipo de accesorio. Respeta la perspectiva, el angulo de camara, la escala, ' +
-      'la iluminacion, las sombras proyectadas y los reflejos del vehiculo original. No alteres el resto del ' +
-      'vehiculo, el fondo, ni el color de la carroceria. El resultado debe parecer una fotografia real tomada ' +
-      'en el mismo lugar y con la misma luz que la foto original del vehiculo.';
+      'Genera una imagen fotorrealista del vehiculo de la primera imagen de referencia con el accesorio ' +
+      'exacto de la segunda imagen de referencia instalado en la posicion correcta. Respeta la perspectiva, ' +
+      'escala, iluminacion y sombras del vehiculo original. No alteres el resto del vehiculo ni el fondo.';
 
-    const form = new FormData();
-    form.append('prompt', prompt);
-    form.append('model', 'gptimage-large');
-    form.append('image', new Blob([Buffer.from(vehicle.data, 'base64')], { type: vehicle.mimeType }), 'vehicle.jpg');
-    form.append('image', new Blob([Buffer.from(accessory.data, 'base64')], { type: accessory.mimeType }), 'accessory.jpg');
-    form.append('safe', 'privacy,secrets,sexual,violence,shield');
-
-    const response = await fetch('https://gen.pollinations.ai/v1/images/edits', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: form,
+    const params = new URLSearchParams({
+      model: 'klein',
+      image: `${vehicleUrl},${accessoryUrl}`,
+      width: '1024',
+      height: '1024',
+      safe: 'privacy,secrets,sexual,violence,shield',
     });
 
-    const result = await response.json();
+    const imageResponse = await fetch(
+      `https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}?${params.toString()}`,
+      {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      }
+    );
 
-    if (!response.ok) {
-      const message = result?.error?.message || result?.error || 'Error al comunicarse con el servicio de IA.';
-      return res.status(response.status).json({ error: message });
+    if (!imageResponse.ok) {
+      let message = 'Error al generar la imagen.';
+      try {
+        const errJson = await imageResponse.json();
+        message = errJson?.error?.message || errJson?.error || message;
+      } catch (e) {
+        // la respuesta de error no era JSON, se usa el mensaje por defecto
+      }
+      return res.status(imageResponse.status).json({ error: message });
     }
 
-    const item = result?.data?.[0];
-    let imageDataUrl = null;
-    if (item?.b64_json) {
-      imageDataUrl = `data:image/png;base64,${item.b64_json}`;
-    } else if (item?.url) {
-      imageDataUrl = item.url;
-    }
+    const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+    const arrayBuffer = await imageResponse.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
 
-    if (!imageDataUrl) {
-      return res.status(502).json({
-        error: 'El modelo no devolvio una imagen. Intenta con fotos mas claras o de otro angulo.',
-      });
-    }
-
-    return res.status(200).json({ image: imageDataUrl });
+    return res.status(200).json({ image: `data:${contentType};base64,${base64}` });
   } catch (err) {
     console.error('simulate error:', err);
     return res.status(500).json({ error: err.message || 'Error interno del servidor.' });

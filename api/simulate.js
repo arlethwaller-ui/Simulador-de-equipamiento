@@ -1,7 +1,7 @@
 // api/simulate.js
 // Recibe dos imagenes (vehiculo + accesorio) en base64 y pide a Pollinations.ai
-// (modelo "nanobanana", gratis con registro) que genere una foto realista
-// del accesorio instalado en el vehiculo.
+// (modelo "kontext", que acepta Pollen gratis de misiones) que genere una foto
+// realista del accesorio instalado en el vehiculo.
 
 export const config = {
   api: {
@@ -52,7 +52,7 @@ export default async function handler(req, res) {
 
     const form = new FormData();
     form.append('prompt', prompt);
-    form.append('model', 'nanobanana');
+    form.append('model', 'kontext');
     form.append('image', new Blob([Buffer.from(vehicle.data, 'base64')], { type: vehicle.mimeType }), 'vehicle.jpg');
     form.append('image', new Blob([Buffer.from(accessory.data, 'base64')], { type: accessory.mimeType }), 'accessory.jpg');
     // Filtros de seguridad: bloquea contenido sexual, violento y otras categorías

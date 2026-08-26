@@ -1,7 +1,8 @@
 // api/simulate.js
-// Enfoque de 2 consultas independientes:
-// 1) Vision+texto: describe el accesorio en detalle a partir de su foto.
-// 2) Edicion de imagen (una sola imagen): agrega el accesorio descrito sobre la foto del vehiculo.
+// Enfoque gratuito de 2 consultas independientes (Pollinations):
+// 1) Vision+texto: describe el accesorio con el maximo detalle posible.
+// 2) Edicion de imagen (una sola imagen): instala el accesorio descrito sobre
+//    la foto del vehiculo, siguiendo reglas estrictas de fidelidad.
 
 export const config = {
   api: {
@@ -35,11 +36,13 @@ async function describeAccessory(apiKey, accessoryDataUrl) {
             {
               type: 'text',
               text:
-                'Describe este accesorio automotriz con el maximo detalle visual posible, en un solo ' +
-                'parrafo, en español: forma exacta, colores, materiales, textura, puntos de montaje, ' +
-                'tamaño aproximado, y cualquier detalle distintivo (logos, luces, texturas). Este texto ' +
-                'se usara para que otra IA lo dibuje sobre la foto de un vehiculo, asi que se lo mas ' +
-                'preciso y descriptivo posible. No des opiniones, solo describe.',
+                'Describe este accesorio automotriz con el MAXIMO detalle visual posible, en español, ' +
+                'en un solo parrafo denso: forma exacta, dimensiones relativas, color exacto (tonos, brillos), ' +
+                'material y textura (mate, brillante, metalico, plastico texturizado), acabado, puntos de montaje ' +
+                'visibles, logos o marcas visibles, tornilleria visible, y cualquier detalle distintivo. Este texto ' +
+                'se usara para que otra IA lo reproduzca con fidelidad exacta sobre la foto de un vehiculo, asi que ' +
+                'no omitas ningun detalle visual observable. No des opiniones ni uses adjetivos vagos, solo hechos ' +
+                'visuales concretos.',
             },
             { type: 'image_url', image_url: { url: accessoryDataUrl } },
           ],
@@ -70,12 +73,21 @@ async function describeAccessory(apiKey, accessoryDataUrl) {
 }
 
 async function editVehicleImage(apiKey, vehicle, accessoryDescription) {
-  const prompt =
-    'Eres un editor fotografico automotriz experto. Agrega el siguiente accesorio a este vehiculo, ' +
-    'instalandolo en la posicion correcta y realista para ese tipo de pieza. Respeta la perspectiva, ' +
-    'iluminacion, sombras y reflejos de la foto original. No cambies el resto del vehiculo ni el fondo. ' +
-    'El accesorio a instalar es: ' +
-    accessoryDescription;
+  const prompt = `Utiliza esta imagen de vehiculo como base. Instala visualmente sobre ella el siguiente accesorio,
+descrito con precision a partir de su foto original:
+
+"""${accessoryDescription}"""
+
+REGLAS OBLIGATORIAS:
+1. Mantener exactamente el vehiculo original: no modificar modelo, carroceria, parachoques, parrilla,
+faros, capot, puertas, espejos, ventanas, molduras, aros, neumaticos, altura, suspension, color ni pintura.
+No agregar elementos que no existan en la foto original del vehiculo.
+2. Reproducir el accesorio descrito con la mayor fidelidad posible: misma forma, color, material y
+proporciones relativas descritas. No rediseñarlo ni sustituirlo por uno generico.
+3. La unica modificacion permitida es instalar ese accesorio en su posicion natural y realista sobre el vehiculo.
+4. Respeta escala, perspectiva, angulo del vehiculo, iluminacion, sombras y reflejos de la foto original.
+5. El resultado debe parecer una fotografia real del mismo vehiculo tras instalar el accesorio, no un render generico.
+La fidelidad es mas importante que la estetica. No inventes detalles del accesorio que no se hayan descrito.`;
 
   const form = new FormData();
   form.append('prompt', prompt);
@@ -133,7 +145,7 @@ export default async function handler(req, res) {
     const accessoryDescription = await describeAccessory(apiKey, accessoryImage);
     const finalImage = await editVehicleImage(apiKey, vehicle, accessoryDescription);
 
-    return res.status(200).json({ image: finalImage, descripcionUsada: accessoryDescription });
+    return res.status(200).json({ image: finalImage });
   } catch (err) {
     console.error('simulate error:', err);
     return res.status(500).json({ error: err.message || 'Error interno del servidor.' });

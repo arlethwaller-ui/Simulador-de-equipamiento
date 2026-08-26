@@ -1,7 +1,7 @@
 // api/simulate.js
 // Paso 1: sube cada foto a Pollinations (POST /upload) para obtener una URL publica.
-// Paso 2: llama a GET /image/{prompt} pasando ambas URLs en el parametro "image",
-// que si soporta multiples referencias documentadas para el modelo "kontext".
+// Paso 2: llama a GET /image/{prompt} pasando ambas URLs en el parametro "image".
+// Esta version expone el detalle exacto de cualquier error para poder diagnosticar.
 
 export const config = {
   api: {
@@ -29,9 +29,18 @@ async function uploadImage(apiKey, mimeType, base64Data, filename) {
     body: form,
   });
 
-  const data = await res.json();
+  const rawText = await res.text();
+  let data = null;
+  try {
+    data = JSON.parse(rawText);
+  } catch (e) {
+    // la respuesta no era JSON
+  }
+
   if (!res.ok || !data?.url) {
-    throw new Error(data?.error?.message || data?.error || 'No se pudo subir la imagen a Pollinations.');
+    throw new Error(
+      `Fallo al subir imagen (status ${res.status}): ${data?.error?.message || data?.error || rawText.slice(0, 300)}`
+    );
   }
   return data.url;
 }
@@ -74,22 +83,24 @@ export default async function handler(req, res) {
       safe: 'privacy,secrets,sexual,violence,shield',
     });
 
-    const imageResponse = await fetch(
-      `https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}?${params.toString()}`,
-      {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      }
-    );
+    const imageUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}?${params.toString()}`;
+
+    const imageResponse = await fetch(imageUrl, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
 
     if (!imageResponse.ok) {
-      let message = 'Error al generar la imagen.';
+      const rawText = await imageResponse.text();
+      let message = rawText.slice(0, 300);
       try {
-        const errJson = await imageResponse.json();
+        const errJson = JSON.parse(rawText);
         message = errJson?.error?.message || errJson?.error || message;
       } catch (e) {
-        // la respuesta de error no era JSON, se usa el mensaje por defecto
+        // no era JSON, se deja el texto crudo
       }
-      return res.status(imageResponse.status).json({ error: message });
+      return res.status(imageResponse.status).json({
+        error: `Fallo al generar (status ${imageResponse.status}): ${message} | URL usada: ${imageUrl} | vehicleUrl: ${vehicleUrl} | accessoryUrl: ${accessoryUrl}`,
+      });
     }
 
     const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';

@@ -73,21 +73,29 @@ async function describeAccessoryWithGemini(geminiKey, accessory) {
 }
 
 async function editVehicleImageWithPollinations(pollinationsKey, vehicle, accessoryDescription) {
-  const prompt = `Utiliza esta imagen de vehiculo como base. Instala visualmente sobre ella el siguiente accesorio,
-descrito con precision a partir de su foto original:
+  const prompt = `Utiliza esta imagen de vehiculo como base, sin alterarla salvo por la instalacion del accesorio.
 
+ACCESORIO A INSTALAR (descrito con precision a partir de su foto original):
 """${accessoryDescription}"""
 
-REGLAS OBLIGATORIAS:
-1. Mantener exactamente el vehiculo original: no modificar modelo, carroceria, parachoques, parrilla,
-faros, capot, puertas, espejos, ventanas, molduras, aros, neumaticos, altura, suspension, color ni pintura.
-No agregar elementos que no existan en la foto original del vehiculo.
-2. Reproducir el accesorio descrito con la mayor fidelidad posible: misma forma, color, material y
-proporciones relativas descritas. No rediseñarlo ni sustituirlo por uno generico.
-3. La unica modificacion permitida es instalar ese accesorio en su posicion natural y realista sobre el vehiculo.
-4. Respeta escala, perspectiva, angulo del vehiculo, iluminacion, sombras y reflejos de la foto original.
-5. El resultado debe parecer una fotografia real del mismo vehiculo tras instalar el accesorio, no un render generico.
-La fidelidad es mas importante que la estetica. No inventes detalles del accesorio que no se hayan descrito.`;
+PROHIBICIONES ESTRICTAS (violar cualquiera de estas es un resultado incorrecto):
+- PROHIBIDO cambiar el color o la pintura de CUALQUIER parte de la carroceria del vehiculo. El color debe
+  quedar identico, pixel por pixel en tono, al de la foto original en toda el area no cubierta por el accesorio.
+- PROHIBIDO agregar texto, logos, insignias, letras o marcas nuevas en cualquier parte del vehiculo
+  (parachoques, tapa, puertas, etc.) que no estuvieran ya visibles en la foto original del vehiculo.
+- PROHIBIDO modificar la forma del parachoques, la tapa de la batea, las puertas, los faros, los aros o los neumaticos.
+- PROHIBIDO repintar o re-texturizar cualquier panel de la carroceria.
+- PROHIBIDO inventar caracteristicas del vehiculo que no esten en la foto original.
+
+UNICA MODIFICACION PERMITIDA:
+Agregar el accesorio descrito arriba, montado en su posicion natural y realista sobre la carroceria
+original sin alterada, respetando escala, perspectiva, angulo, iluminacion, sombras y reflejos de la foto.
+
+Antes de finalizar, verifica: ¿el color y la carroceria del vehiculo siguen siendo EXACTAMENTE iguales a
+la foto original en toda la superficie no cubierta por el accesorio? Si no es asi, corrigelo.
+
+El resultado debe parecer la MISMA fotografia original del vehiculo, con el accesorio agregado encima,
+no una imagen nueva ni un render distinto del vehiculo.`;
 
   const form = new FormData();
   form.append('prompt', prompt);

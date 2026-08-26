@@ -1,7 +1,8 @@
 // api/simulate.js
 // Recibe dos imagenes (vehiculo + accesorio) en base64 y pide a Pollinations.ai
-// (modelo "klein", que acepta Pollen gratis de misiones Y admite dos imagenes
-// de referencia) que genere una foto realista del accesorio instalado en el vehiculo.
+// (modelo "gptimage-large", que acepta Pollen gratis de misiones y admite
+// imagenes de referencia) que genere una foto realista del accesorio instalado
+// en el vehiculo.
 
 export const config = {
   api: {
@@ -52,11 +53,9 @@ export default async function handler(req, res) {
 
     const form = new FormData();
     form.append('prompt', prompt);
-    form.append('model', 'klein');
+    form.append('model', 'gptimage-large');
     form.append('image', new Blob([Buffer.from(vehicle.data, 'base64')], { type: vehicle.mimeType }), 'vehicle.jpg');
     form.append('image', new Blob([Buffer.from(accessory.data, 'base64')], { type: accessory.mimeType }), 'accessory.jpg');
-    // Filtros de seguridad: bloquea contenido sexual, violento y otras categorias
-    // problematicas. Importante porque esta app es publica y recibe fotos de terceros.
     form.append('safe', 'privacy,secrets,sexual,violence,shield');
 
     const response = await fetch('https://gen.pollinations.ai/v1/images/edits', {

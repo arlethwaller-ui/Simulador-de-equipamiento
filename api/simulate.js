@@ -1,8 +1,7 @@
 // api/simulate.js
-// Enfoque gratuito de 2 consultas independientes (Pollinations):
-// 1) Vision+texto: describe el accesorio con el maximo detalle posible.
-// 2) Edicion de imagen (una sola imagen): instala el accesorio descrito sobre
-//    la foto del vehiculo, siguiendo reglas estrictas de fidelidad.
+// Enfoque hibrido:
+// 1) Descripcion del accesorio: Gemini 2.5 Flash (texto+vision), 100% gratis.
+// 2) Generacion de la imagen final: Pollinations "kontext" (gratis con Pollen).
 
 export const config = {
   api: {
@@ -20,36 +19,37 @@ function parseDataUrl(dataUrl) {
   return { mimeType: match[1], data: match[2] };
 }
 
-async function describeAccessory(apiKey, accessoryDataUrl) {
-  const res = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'openai',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text:
-                'Describe este accesorio automotriz con el MAXIMO detalle visual posible, en español, ' +
-                'en un solo parrafo denso: forma exacta, dimensiones relativas, color exacto (tonos, brillos), ' +
-                'material y textura (mate, brillante, metalico, plastico texturizado), acabado, puntos de montaje ' +
-                'visibles, logos o marcas visibles, tornilleria visible, y cualquier detalle distintivo. Este texto ' +
-                'se usara para que otra IA lo reproduzca con fidelidad exacta sobre la foto de un vehiculo, asi que ' +
-                'no omitas ningun detalle visual observable. No des opiniones ni uses adjetivos vagos, solo hechos ' +
-                'visuales concretos.',
-            },
-            { type: 'image_url', image_url: { url: accessoryDataUrl } },
-          ],
-        },
-      ],
-    }),
-  });
+async function describeAccessoryWithGemini(geminiKey, accessory) {
+  const res = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': geminiKey,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text:
+                  'Describe este accesorio automotriz con el MAXIMO detalle visual posible, en español, ' +
+                  'en un solo parrafo denso: forma exacta, dimensiones relativas, color exacto (tonos, brillos), ' +
+                  'material y textura (mate, brillante, metalico, plastico texturizado), acabado, puntos de montaje ' +
+                  'visibles, logos o marcas visibles, tornilleria visible, y cualquier detalle distintivo. Este texto ' +
+                  'se usara para que otra IA lo reproduzca con fidelidad exacta sobre la foto de un vehiculo, asi que ' +
+                  'no omitas ningun detalle visual observable. No des opiniones ni uses adjetivos vagos, solo hechos ' +
+                  'visuales concretos.',
+              },
+              { inline_data: { mime_type: accessory.mimeType, data: accessory.data } },
+            ],
+          },
+        ],
+      }),
+    }
+  );
 
   const rawText = await res.text();
   let data = null;
@@ -61,18 +61,18 @@ async function describeAccessory(apiKey, accessoryDataUrl) {
 
   if (!res.ok) {
     throw new Error(
-      `Fallo al describir el accesorio (status ${res.status}): ${data?.error?.message || data?.error || rawText.slice(0, 300)}`
+      `Fallo al describir el accesorio con Gemini (status ${res.status}): ${data?.error?.message || rawText.slice(0, 300)}`
     );
   }
 
-  const description = data?.choices?.[0]?.message?.content;
+  const description = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!description) {
-    throw new Error('No se pudo obtener una descripcion del accesorio.');
+    throw new Error('Gemini no devolvio una descripcion del accesorio.');
   }
   return description;
 }
 
-async function editVehicleImage(apiKey, vehicle, accessoryDescription) {
+async function editVehicleImageWithPollinations(pollinationsKey, vehicle, accessoryDescription) {
   const prompt = `Utiliza esta imagen de vehiculo como base. Instala visualmente sobre ella el siguiente accesorio,
 descrito con precision a partir de su foto original:
 
@@ -97,7 +97,7 @@ La fidelidad es mas importante que la estetica. No inventes detalles del accesor
 
   const res = await fetch('https://gen.pollinations.ai/v1/images/edits', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}` },
+    headers: { Authorization: `Bearer ${pollinationsKey}` },
     body: form,
   });
 
@@ -111,14 +111,14 @@ La fidelidad es mas importante que la estetica. No inventes detalles del accesor
 
   if (!res.ok) {
     throw new Error(
-      `Fallo al generar la imagen (status ${res.status}): ${data?.error?.message || data?.error || rawText.slice(0, 300)}`
+      `Fallo al generar la imagen con Pollinations (status ${res.status}): ${data?.error?.message || data?.error || rawText.slice(0, 300)}`
     );
   }
 
   const item = data?.data?.[0];
   if (item?.b64_json) return `data:image/png;base64,${item.b64_json}`;
   if (item?.url) return item.url;
-  throw new Error('El modelo no devolvio una imagen.');
+  throw new Error('Pollinations no devolvio una imagen.');
 }
 
 export default async function handler(req, res) {
@@ -127,11 +127,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Metodo no permitido.' });
   }
 
-  const apiKey = process.env.POLLINATIONS_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({
-      error: 'El servidor no tiene configurada POLLINATIONS_API_KEY. Agrega la variable de entorno en Vercel.',
-    });
+  const geminiKey = process.env.GEMINI_API_KEY;
+  const pollinationsKey = process.env.POLLINATIONS_API_KEY;
+
+  if (!geminiKey) {
+    return res.status(500).json({ error: 'Falta configurar GEMINI_API_KEY en Vercel.' });
+  }
+  if (!pollinationsKey) {
+    return res.status(500).json({ error: 'Falta configurar POLLINATIONS_API_KEY en Vercel.' });
   }
 
   try {
@@ -141,9 +144,10 @@ export default async function handler(req, res) {
     }
 
     const vehicle = parseDataUrl(vehicleImage);
+    const accessory = parseDataUrl(accessoryImage);
 
-    const accessoryDescription = await describeAccessory(apiKey, accessoryImage);
-    const finalImage = await editVehicleImage(apiKey, vehicle, accessoryDescription);
+    const accessoryDescription = await describeAccessoryWithGemini(geminiKey, accessory);
+    const finalImage = await editVehicleImageWithPollinations(pollinationsKey, vehicle, accessoryDescription);
 
     return res.status(200).json({ image: finalImage });
   } catch (err) {
